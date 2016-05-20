@@ -13,8 +13,12 @@ typedef struct Cell {
    char type;      
 } Cell;
 
-Cell cells [16];
-int cost_matrix[16];
+Cell cells [16]; //array of cells
+
+int cost_matrix[16][16];
+int pass_matrix[16][16];
+int short_path[16];
+
 char direction = 'n'; 
 
 int current_x = 1;
@@ -23,7 +27,7 @@ int current_y = 1;
 int prev_x = 1;
 int prev_y = 1;
 
-int goal1_x = 4;
+int goal1_x = 4; //coordinates of point that need to be reached
 int goal1_y = 4;
 int goal2_x = 4;
 int goal2_y = 1;
@@ -116,7 +120,7 @@ void update_visited() //update data about whether a cell was visited or not
 int pingDistance() //measure distance from a wall in current direction
 {
 
-  return ping_cm(8);
+  return ping_cm(8);;
 }
 
 void move_forward () //move one cell forward in current direction
@@ -257,30 +261,44 @@ void ping_wall(int i) //check current side for walls
 		switch (direction)
 		{
 			case 'n' :
-				if(pingDistance() < 25) cells [i].north = 1;
+				if(pingDistance() < 30) 
+				{
+					cells [i].north = 1;
+					printf("wall on n\n");
+				}
 				north_weight = pingDistance(); //save distance from north wall
 				break;
 
 			case 'w' :
-				if(pingDistance() < 25) cells [i].west = 1;
+				if(pingDistance() < 30) 
+				{
+					cells [i].west = 1;
+					printf("wall on w\n");
+				}	
 				west_weight = pingDistance(); //save distance from north wall
 				break;
 
 			case 's' :
-				if(pingDistance() < 25) cells [i].south = 1;
+				if(pingDistance() < 30) 
+					{
+						cells [i].south = 1;
+						printf("wall on s\n");
+					}
 				south_weight = pingDistance(); //save distance from north wall
 				break;
 
 			case 'e' :
-				if(pingDistance() < 25) cells [i].east = 1;
+				if(pingDistance() < 30) 
+					{
+						cells [i].east = 1;
+						printf("wall on e\n");
+					}
 				east_weight = pingDistance(); //save distance from north wall
 				break;
 
 		}
 	}
 }
-
-void calibrate_pos(); //does nothing atm
 
 void swap_direction(char goal) //turn robot to a desired direction
 {
@@ -424,8 +442,10 @@ void check_walls () //check all sides for walls
 			printf("New weight: %d\n", *temp_weight); 
 		} while(*temp_weight == memory_weight);
 
-		if(*temp_weight > memory_weight) {
+		if(*temp_weight > memory_weight) 
+		{	
 			drive_goto(-tick_rot * counter, tick_rot * counter);
+			
 			ping_wall(cell); 
 			counter = 0;
 			do {
@@ -434,8 +454,12 @@ void check_walls () //check all sides for walls
 				ping_wall(cell); 
 				printf("New weight: %d\n", *temp_weight);
 			} while(*temp_weight == memory_weight);
-			if(*temp_weight > memory_weight) {
+
+			if(*temp_weight > memory_weight) 
+			{
+				
 				drive_goto(tick_rot * counter, -tick_rot * counter);
+				
 			}
 		}
 
@@ -472,24 +496,24 @@ void check_walls () //check all sides for walls
 		swap_direction(memory_direction);
 	} 
 
-	printf("Weight NESW: %d %d %d %d\n", north_weight, east_weight, south_weight, west_weight);
+	/*printf("Weight NESW: %d %d %d %d\n", north_weight, east_weight, south_weight, west_weight);
 	printf("X Difference: %d\n", x_diff);
 	printf("X Sum: %d\n", x_sum);
 	printf("Y Difference: %d\n", y_diff);
-	printf("Y Sum: %d\n", y_sum);
+	printf("Y Sum: %d\n", y_sum);*/
 
 	switch(direction) {
 		case 's':
-			printf("Inverting Y difference!\n");
+			//printf("Inverting Y difference!\n");
 			y_diff = -1 * y_diff;
 			break;
 		case 'w':
-			printf("Inverting X difference!\n");
+			//printf("Inverting X difference!\n");
 			x_diff = -1 * x_diff;
 			break;
 	}
 
-	printf("Current direction is '%c', beginning adjustment . . .\n", direction);
+	//printf("Current direction is '%c', beginning adjustment . . .\n", direction);
 
 	switch(direction) {
 		case 'n':
@@ -497,14 +521,14 @@ void check_walls () //check all sides for walls
 			if(abs(y_diff) < diff_treshold && y_sum < sum_treshold) {
 				double adjustment = (double) y_diff / 2.0;
 				int ticks = adjustment * 10.0 / 3.25;
-				printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
 				drive_goto(ticks, ticks);
 			}
 			if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
 				swap_direction('e');
 				double adjustment = (double) x_diff / 2.0;
 				int ticks = adjustment * 10.0 / 3.25;
-				printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
 				drive_goto(ticks, ticks);
 				swap_direction(memory_direction);
 			}
@@ -514,14 +538,14 @@ void check_walls () //check all sides for walls
 			if(x_diff < diff_treshold && x_sum < sum_treshold) {
 				double adjustment = (double) x_diff / 2.0;
 				int ticks = adjustment * 10.0 / 3.25;
-				printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
 				drive_goto(ticks, ticks);
 			}
 			if(y_diff < diff_treshold && y_sum < sum_treshold) {
 				swap_direction('n');
 				double adjustment = (double) y_diff / 2.0;
 				int ticks = adjustment * 10.0 / 3.25;
-				printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
 				drive_goto(ticks, ticks);
 				swap_direction(memory_direction);
 			}
@@ -640,12 +664,12 @@ void print_cells() //print data of all cells
 
 	for (i=0; i < 16; i++)
 	{
-		printf("x - %d y - %d n,s,e,w: %d%d%d%d visited - %d type - %c\n", cells[i].x, cells[i].y, 
+		printf("id - %d x - %d y - %d n,s,e,w: %d%d%d%d visited - %d type - %c\n", i,cells[i].x, cells[i].y, 
 			cells[i].north, cells[i].south,cells[i].east, cells[i].west, cells[i].visited, cells[i].type);
 	}
 }
 
-void monve_out() //initial move out of 
+void move_out() //initial move out of 
 {
 	move_forward(); //roll out
 	update_visited();
@@ -703,6 +727,8 @@ void choose_direct_rand_j() //on a new junction, choose random direction
 	int e_av = 1;
 	int w_av = 1;
 
+	printf("I can't go %c, as I came from there\n", cant);
+
 	switch (cant)
 	{
 		case ('n'):
@@ -734,13 +760,25 @@ void choose_direct_rand_j() //on a new junction, choose random direction
 	
 
 	if (n_av == 1)
+	{
 		dest = 'n';
+		printf("n is available\n");
+	}
 	if (w_av == 1)
+	{
 		dest = 'w';
+		printf("w is available\n");
+	}
 	if (s_av == 1)
+	{
 		dest = 's';
+		printf("s is available\n");
+	}
 	if (e_av == 1)
+	{
 		dest = 'e';
+		printf("e is available\n");
+	}
 
 	printf("Randomly choose %c\n", dest);
 
@@ -900,9 +938,6 @@ void tremaux() //do tremaux algorithm
 	l = find_cell(goal3_x, goal3_y);
 
 
-
-
-
 	while(cells[k].visited == 0 || cells[m].visited == 0 || cells[l].visited == 0)
 	{
 		cell_analysis();
@@ -915,25 +950,271 @@ void tremaux() //do tremaux algorithm
 
 	}
 
-	printf("I'm home, master!\n");
+	printf("I'm done, master!\n");
 }
 
-void warshall()
+void create_matrices() //fills up cost and pass matrices with cost values
 {
-	// Warshall algorithm
+	int i,j;
+	int n,s,e,w;
+	int n_can, s_can, e_can, w_can;
+	int x,y;
+
+	for(i = 0; i<16; i++)
+	{
+		for(j = 0; j<16; j++)
+		{
+			if(i == j)
+			{
+				cost_matrix[i][j] = 0; //no cost of going to itself
+			}
+
+			else
+			{
+			cost_matrix[i][j] = 99; //by default - no connection for all nodes
+			}
+
+			pass_matrix[i][j] = -1;
+		}
+	}
+
+	for (i = 0; i < 16; i++)
+	{
+		printf("\nFor %d:\n", i);
+		n_can = 0;
+		s_can = 0;
+		e_can = 0;
+		w_can = 0;
+
+		if(cells[i].visited == 0)
+		{
+			printf("That cell wasn't visited!\n");
+			continue;
+		}
+
+		if(cells[i].y < 4) //check if cell on the north is possible
+		{
+			x = cells[i].x;
+			y = cells[i].y + 1;
+			n = find_cell(x,y); //get cell on the north
+			printf("	Theoretically can connect to %d\n", n);
+			if(cells[n].visited > 0)
+			{
+			n_can = 1;
+			printf("	%d is visited, can connect\n", n);
+			}
+		}
+
+		if(cells[i].y > 1) //check if cell on the south is possible
+		{
+			x = cells[i].x;
+			y = cells[i].y - 1;
+			s = find_cell(x,y); //get cell on the south
+			printf("	Theoretically can connect to %d\n", s);
+			if(cells[s].visited > 0)
+			{
+				s_can = 1;
+				printf("	%d is visited, can connect\n", s);
+			}
+		}
+
+		if(cells[i].x < 4) //check if cell on the east is possible
+		{
+			x = cells[i].x + 1;
+			y = cells[i].y;
+			e = find_cell(x,y); //get cell on the east
+			printf("	Theoretically can connect to %d\n", e);
+			if(cells[e].visited > 0)
+			{
+				e_can = 1;
+				printf("	%d is visited, can connect\n", e);
+			}
+		}
+
+		if(cells[i].x > 1) //check if cell on the south is possible
+		{
+			x = cells[i].x - 1;
+			y = cells[i].y;
+			w = find_cell(x,y); //get cell on the south
+			printf("	Theoretically can connect to %d\n", w);
+			if(cells[w].visited > 0)
+			{
+				w_can = 1;
+				printf("	%d is visited, can connect\n", w);
+			}
+
+		}
+
+
+		if(cells[i].north == 0 &&  n_can == 1) //if no wall and cell was visited, write to table
+		{
+			cost_matrix[i][n] = 1;
+			cost_matrix[n][i] = 1;
+			printf("	Cell %d is connected to %d\n", i,n);
+		}
+
+		if(cells[i].south == 0 && s_can == 1) //if no wall and cell was visited, write to table
+		{
+			cost_matrix[i][s] = 1;
+			cost_matrix[s][i] = 1;
+			printf("	Cell %d is connected to %d\n", i,s);
+		}
+
+		if(cells[i].east == 0 && e_can == 1) //if no wall and cell was visited, write to table
+		{
+			cost_matrix[i][e] = 1;
+			cost_matrix[e][i] = 1;
+			printf("	Cell %d is connected to %d\n", i,e);
+		}
+
+		if(cells[i].west == 0 && w_can == 1) //if no wall and cell was visited, write to table
+		{
+			cost_matrix[i][w] = 1;
+			cost_matrix[w][i] = 1;
+			printf("	Cell %d is connected to %d\n", i,w);
+		}
+	}
+
+}
+
+void print_cost_matrix()
+{
+	int i, j;
+
+	printf("\n     ");
+	for(i = 0; i < 16; i++)
+	{
+		printf("%2d  ", i);
+	}
+
+	printf("\n____________________________________________________________________\n\n");
+
+	for (i=0; i<16; i++)
+	{ 
+
+	printf("%2d | ",i);
+
+    for(j=0; j<16; j++)
+         printf("%2d  ", cost_matrix[i][j]);
+
+    printf("\n");
+	 }
+
+	printf("\n");
+}
+
+void print_pass_matrix()
+{
+	int i, j;
+
+	printf("\n     ");
+	for(i = 0; i < 16; i++)
+	{
+		printf("%2d  ", i);
+	}
+
+	printf("\n____________________________________________________________________\n\n");
+
+	for (i=0; i<16; i++)
+	{ 
+
+	printf("%2d | ",i);
+
+    for(j=0; j<16; j++)
+         printf("%2d  ", pass_matrix[i][j]);
+
+    printf("\n");
+	 }
+
+	printf("\n");
+}
+
+void floyds()
+{
+	int k, i,j;
+
+	for (k = 0; k < 16; k++)
+	{
+		for (i = 0; i < 16; i++)
+		{
+			for (j = 0; j < 16; j++)
+			{
+				if (cost_matrix[i][k] + cost_matrix[k][j] < cost_matrix[i][j])
+				{
+					cost_matrix[i][j] = cost_matrix[i][k] + cost_matrix[k][j];
+					pass_matrix[i][j] = k;
+				}
+				
+			}
+			
+		}
+
+	}
+}
+
+void path_init()
+{
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		short_path[i] = -1;
+	}
+}
+
+void shortest_path(int i, int j)
+{
+	int r,k;
+
+	if (cost_matrix[i][j] == 99)
+	{
+		return;
+	}
+
+	k = pass_matrix[i][j];
+
+	if (k == -1)
+	{
+		for (r = 0; r < 16; r++)
+		{
+			if (short_path[r] == -1)
+			{
+				short_path[r] = j;
+				return;
+			}
+		}
+	}
+
+	else
+	{
+		shortest_path(i, k);
+		shortest_path(k, j);
+	}
+
+
 }
 
 int main (void)
 {
 
-	int left, right;
-	int i;
-
 	initialise_cells(); // initiaise cells in the map with indices and false for all walls
 
 	tremaux();
 
-	warshall();
+	create_matrices();
+	print_cost_matrix();
+	floyds();
+	print_pass_matrix();
+	path_init();
+	shortest_path(3,0);
+
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		printf("%d ", short_path[i]);
+	}
+
+
+	
 
 	return 0;
 }
