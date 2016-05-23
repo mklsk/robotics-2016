@@ -39,6 +39,8 @@ int south_weight;
 int east_weight;
 int west_weight;
 
+int avg_weight = -1;
+
 void update_position() //update robots current position
 {
 
@@ -188,34 +190,6 @@ void turn (char dir) //turn clockwise or anti-clockwise
 	}
 }
 
-void adjust_ping ()
-{
-
-	int new = pingDistance();
-	int dir = 1; //initially try clockwise
-	int gap;
-
-	printf("New - %d\n", new);
-
-
-	while (new != 15)
-	{
-		gap = abs(15-new); //initial gap
-		printf("Gap - %d\n", new);		
-
-		drive_goto(dir,-dir); //try 1 direction
-		new = pingDistance();
-
-		if (gap < abs(15 - new)) //if did worse
-		{
-			dir = -dir; //switch direction
-		}
-
-
-		printf("New - %d\n", new);
-	}
-}
-
 /*void adjust_ir ()
 {
 	int left, right;
@@ -265,6 +239,8 @@ void ping_wall(int i) //check current side for walls
 				{
 					cells [i].north = 1;
 					printf("wall on n\n");
+				} else {
+					cells [i].north = 0;
 				}
 				north_weight = pingDistance(); //save distance from north wall
 				break;
@@ -274,7 +250,9 @@ void ping_wall(int i) //check current side for walls
 				{
 					cells [i].west = 1;
 					printf("wall on w\n");
-				}	
+				} else {
+					cells [i].west = 0;
+				}
 				west_weight = pingDistance(); //save distance from north wall
 				break;
 
@@ -283,6 +261,8 @@ void ping_wall(int i) //check current side for walls
 					{
 						cells [i].south = 1;
 						printf("wall on s\n");
+					} else {
+						cells [i].south = 0;
 					}
 				south_weight = pingDistance(); //save distance from north wall
 				break;
@@ -292,6 +272,8 @@ void ping_wall(int i) //check current side for walls
 					{
 						cells [i].east = 1;
 						printf("wall on e\n");
+					} else {
+						cells [i].east = 0;
 					}
 				east_weight = pingDistance(); //save distance from north wall
 				break;
@@ -384,24 +366,79 @@ void swap_direction(char goal) //turn robot to a desired direction
 	}
 }
 
+void adjust_angle(int *temp_weight) {
+
+	int cell = find_current_cell();
+	ping_wall(cell);
+	int memory_weight = *temp_weight;
+
+	int tick_rot = 1;
+	char rot_dir = 'c';
+
+	printf("Determining rotation direction . . .\n");
+
+	printf("Current weight: %d\n", *temp_weight);
+
+	int counter = 0;
+	do {
+		counter++;
+		drive_goto(tick_rot, -tick_rot);
+		ping_wall(cell);
+		printf("New weight: %d\n", *temp_weight); 
+	} while(*temp_weight == memory_weight);
+
+	if(*temp_weight > memory_weight) 
+	{	
+		drive_goto(-tick_rot * counter, tick_rot * counter);
+		
+		ping_wall(cell); 
+		counter = 0;
+		do {
+			counter++;
+			drive_goto(-tick_rot, tick_rot);
+			ping_wall(cell); 
+			printf("New weight: %d\n", *temp_weight);
+		} while(*temp_weight == memory_weight);
+
+		if(*temp_weight > memory_weight) 
+		{
+			
+			drive_goto(tick_rot * counter, -tick_rot * counter);
+			
+		}
+	}
+
+}
+
 void check_walls () //check all sides for walls
 {
 	int i = find_current_cell();
 
-	ping_wall(i);
-	
-	turn('c');
+	int memory_direction = direction;
+
 	ping_wall(i);
 
-	turn('a');
-	turn('a');
-	ping_wall(i);
 
-	turn('a');
-	ping_wall(i);
-
-	turn('c');
-	turn('c');
+	if(cells[i].north == -1) {
+		print("North unknown, checking...\n");
+		swap_direction('n');
+		ping_wall(i);
+	}
+	if(cells[i].east == -1) {
+		print("East unknown, checking...\n");
+		swap_direction('e');
+		ping_wall(i);
+	}
+	if(cells[i].south == -1) {
+		print("South unknown, checking...\n");
+		swap_direction('s');
+		ping_wall(i);
+	}
+	if(cells[i].west == -1) {
+		print("West unknown, checking...\n");
+		swap_direction('w');
+		ping_wall(i);
+	}
 
 	int y_diff = north_weight - south_weight;
 	int y_sum = north_weight + south_weight;
@@ -409,91 +446,16 @@ void check_walls () //check all sides for walls
 	int x_sum = east_weight + west_weight;
 
 	int diff_treshold = 18;
-	int sum_treshold = 40;
+	int sum_treshold = 60;
 
-	int memory_direction = direction;
-
-	if(x_sum < sum_treshold || y_sum < sum_treshold) {
-		int *temp_weight;
-		if(x_sum < sum_treshold) {
+	if((cells[i].west && cells[i].south) || (cells[i].north && cells[i].south)) {
+		if(cells[i].west && cells[i].south) {
 			swap_direction('e');
-			temp_weight = &east_weight;
 		}
 		else {
 			swap_direction('n');
-			temp_weight = &north_weight;
+			adjust_angle(&north_weight);
 		}
-		int cell = find_current_cell();
-		ping_wall(cell);
-		int memory_weight = *temp_weight;
-
-		int tick_rot = 1;
-		char rot_dir = 'c';
-
-		printf("Determining rotation direction . . .\n");
-
-		printf("Current weight: %d\n", *temp_weight);
-
-		int counter = 0;
-		do {
-			counter++;
-			drive_goto(tick_rot, -tick_rot);
-			ping_wall(cell);
-			printf("New weight: %d\n", *temp_weight); 
-		} while(*temp_weight == memory_weight);
-
-		if(*temp_weight > memory_weight) 
-		{	
-			drive_goto(-tick_rot * counter, tick_rot * counter);
-			
-			ping_wall(cell); 
-			counter = 0;
-			do {
-				counter++;
-				drive_goto(-tick_rot, tick_rot);
-				ping_wall(cell); 
-				printf("New weight: %d\n", *temp_weight);
-			} while(*temp_weight == memory_weight);
-
-			if(*temp_weight > memory_weight) 
-			{
-				
-				drive_goto(tick_rot * counter, -tick_rot * counter);
-				
-			}
-		}
-
-
-		// drive_goto(tick_rot, -tick_rot);
-		// ping_wall(cell);
-
-		// printf("New weight: %d\n", *temp_weight);
-
-		// if(*temp_weight > memory_weight) {
-		// 	rot_dir = 'a';
-		// 	drive_goto(- tick_rot * 2, tick_rot * 2);
-		// 	ping_wall(cell);
-		// }
-
-		// printf("Rotating in direction '%c' . . .\n", rot_dir);
-
-		// while(*temp_weight < memory_weight) {
-		// 	printf("Improvement in distance, rotating further.\n");
-		// 	memory_weight = *temp_weight;
-		// 	if(rot_dir == 'c') {
-		// 		drive_goto(tick_rot, -tick_rot);
-		// 	} else {
-		// 		drive_goto(-tick_rot, tick_rot);
-		// 	}
-		// }
-		// printf("No improvements, undoing last rotation.\n");
-		// if(rot_dir == 'a') {
-		// 	drive_goto(tick_rot, -tick_rot);
-		// } else {
-		// 	drive_goto(-tick_rot, tick_rot);
-		// }
-
-		swap_direction(memory_direction);
 	} 
 
 	/*printf("Weight NESW: %d %d %d %d\n", north_weight, east_weight, south_weight, west_weight);
@@ -515,42 +477,32 @@ void check_walls () //check all sides for walls
 
 	//printf("Current direction is '%c', beginning adjustment . . .\n", direction);
 
-	switch(direction) {
-		case 'n':
-		case 's':
-			if(abs(y_diff) < diff_treshold && y_sum < sum_treshold) {
-				double adjustment = (double) y_diff / 2.0;
-				int ticks = adjustment * 10.0 / 3.25;
-				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
-				drive_goto(ticks, ticks);
-			}
-			if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
-				swap_direction('e');
-				double adjustment = (double) x_diff / 2.0;
-				int ticks = adjustment * 10.0 / 3.25;
-				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
-				drive_goto(ticks, ticks);
-				swap_direction(memory_direction);
-			}
-			break;
-		case 'e':
-		case 'w':
-			if(x_diff < diff_treshold && x_sum < sum_treshold) {
-				double adjustment = (double) x_diff / 2.0;
-				int ticks = adjustment * 10.0 / 3.25;
-				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
-				drive_goto(ticks, ticks);
-			}
-			if(y_diff < diff_treshold && y_sum < sum_treshold) {
-				swap_direction('n');
-				double adjustment = (double) y_diff / 2.0;
-				int ticks = adjustment * 10.0 / 3.25;
-				//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
-				drive_goto(ticks, ticks);
-				swap_direction(memory_direction);
-			}
-			break;
+	double adjustment = 0;
+
+	if(abs(y_diff) < diff_treshold && y_sum < sum_treshold) {
+		if(direction != 'n' && direction != 's') swap_direction('n');
+		adjustment = (double) y_diff / 2.0;
+		if(avg_weight == -1) avg_weight = y_sum / 2;
+		else {
+			avg_weight += y_sum / 2;
+			avg_weight /= 2;
+		}
 	}
+	if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
+		if(direction != 'e' && direction != 'w') swap_direction('e');
+		adjustment = (double) x_diff / 2.0;
+		if(avg_weight == -1) avg_weight = x_sum / 2;
+		else {
+			avg_weight += x_sum / 2;
+			avg_weight /= 2;
+		}
+	}
+
+	int ticks = adjustment * 10.0 / 3.25;
+	//printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+	printf("Average weight from wall: %d\n", avg_weight);
+	drive_goto(ticks, ticks);
+	swap_direction(memory_direction);
 
 }
 
@@ -566,16 +518,6 @@ void determ_type(int i) //determine if cell is an elem of path, a dead end or ju
 		cells[i].type = 'j';
 
 	//printf("Type - %c \n", cells[i].type);
-}
-
-void center_against_walls() //center robot in a cell using two parallel walls
-{
-	int i = find_current_cell();
-
-	if((cells[i].north && cells[i].south) || (cells[i].east && cells[i].west)) //if there are two parallel walls
-	{
-		printf("\n");
-	}
 }
 
 void move () //set of actions performed each time the robot moves
@@ -598,63 +540,17 @@ void initialise_cells() //give index and other basic value to cells
 {
 	int i;
 
-	for (i=0; i < 16; i++)
+	for (i = 0; i < 16; i++)
 	{
+		cells[i].x = i / 4 + 1;
+		cells[i].y = i % 4 + 1;
 
-		if (i<4)
-		{
-			cells[i].x = 1; 
-		}
+		cells[i].north = -1;
+		cells[i].south = -1;
+		cells[i].east = -1;
+		cells[i].west = -1;
 
-		else
-		{
-
-			if (i<8)
-			{
-				cells[i].x = 2; 
-			}
-
-			else
-			{
-
-				if (i<12)
-				{
-					cells[i].x = 3; 
-				}
-
-				else
-				{
-
-					cells[i].x = 4; 
-
-				}
-
-			}
-
-		}
-
-	}
-
-	for (i=0; i < 16; i++)
-	{
-		if (i == 0 || i == 4 || i == 8 || i == 12)
-			cells[i].y = 1;
-
-		if (i == 1 || i == 5 || i == 9 || i == 13)
-			cells[i].y = 2;
-
-		if (i == 2 || i == 6 || i == 10 || i == 14)
-			cells[i].y = 3;
-
-		if (i == 3 || i == 7 || i == 11 || i == 15)
-			cells[i].y = 4;
-
-		cells[i].north = 0;
-		cells[i].south = 0;
-		cells[i].east = 0;
-		cells[i].west = 0;
 		cells[i].visited = 0;
-
 	}
 }
 
@@ -1189,16 +1085,109 @@ void shortest_path(int i, int j)
 		shortest_path(i, k);
 		shortest_path(k, j);
 	}
+}
+
+void adjust_one_wall(int *temp_weight) {
+	ping_wall(find_current_cell());
+	int difference = *temp_weight - avg_weight;
+	int ticks = difference * 10.0 / 3.25;
+	printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+	drive_goto(ticks, ticks);
+}
+
+void follow_shortest() {
+
+	printf("Following the shortest path:\n");
+
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		printf("%d ", short_path[i]);
+	}
+
+	printf("\n\n");
+
+	i = 0;
+	while(short_path[i] != -1) {
+		printf("Considering node #%d in the path...", i);
+		Cell current_cell = cells[find_current_cell()];
+		Cell cell = cells[short_path[i]];
+
+		// Pick adjustment wall
+		char adj_dir = '\0';
+		int *adj_weight;
+		if(current_cell.north) {
+			adj_dir = 'n';
+			adj_weight = &north_weight;
+		} else if(current_cell.east) {
+			adj_dir = 'e';
+			adj_weight = &east_weight;
+		} else if(current_cell.south) {
+			adj_dir = 's';
+			adj_weight = &south_weight;
+		} else if(current_cell.west) {
+			adj_dir = 'w';
+			adj_weight = &west_weight;
+		}
+
+		if(adj_dir != '\0') {
+			swap_direction(adj_dir);
+			adjust_angle(adj_weight);
+			adjust_one_wall(adj_weight);
+		}
+
+		if(cell.x != current_x) {
+			if(cell.x > current_x) {
+				printf("Moving east...");
+				swap_direction('e');
+				move_forward();
+				current_x++;
+			} else {
+				printf("Moving west...");
+				swap_direction('w');
+				move_forward();
+				current_x--;
+			}
+		} else if(cell.y != current_y) {
+			if(cell.y > current_y) {
+				printf("Moving north...");
+				swap_direction('n');
+				move_forward();
+				current_y++;
+			} else {
+				printf("Moving south...");
+				swap_direction('s');
+				move_forward();
+				current_y--;
+			}
+		}
+		i++;
+	}
+
+}
 
 
+void convert_unknown_to_walls() {
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		if(cells[i].north == -1) cells[i].north = 0;
+		if(cells[i].south == -1) cells[i].south = 0;
+		if(cells[i].east == -1) cells[i].east = 0;
+		if(cells[i].west == -1) cells[i].west = 0;
+	}
 }
 
 int main (void)
 {
 
+	printf("Race Algorithm v0.8.6\n\n");
+
 	initialise_cells(); // initiaise cells in the map with indices and false for all walls
 
 	tremaux();
+
+	convert_unknown_to_walls();
 
 	create_matrices();
 	print_cost_matrix();
@@ -1207,14 +1196,7 @@ int main (void)
 	path_init();
 	shortest_path(3,0);
 
-	int i;
-	for (i = 0; i < 16; i++)
-	{
-		printf("%d ", short_path[i]);
-	}
-
-
-	
+	follow_shortest();
 
 	return 0;
 }
