@@ -2,6 +2,14 @@
 #include "abdrive.h" 
 #include "ping.h"
 
+/* Activity bot width (ABW) in millimetres */
+#define ABW 106
+ 
+//Distance per tick (DPT) in millimetres
+#define DPT 3.25
+
+#define PI 3.14159265358979323846
+
 typedef struct Cell {
    int x;
    int y;
@@ -14,6 +22,9 @@ typedef struct Cell {
 } Cell;
 
 Cell cells [16]; //array of cells
+
+int cell_size_cm = 40;
+int cell_size_ticks = DPT * 40;
 
 int cost_matrix[16][16];
 int pass_matrix[16][16];
@@ -128,8 +139,7 @@ int pingDistance() //measure distance from a wall in current direction
 void move_forward () //move one cell forward in current direction
 {
 
-	int dist = 123;
-	drive_goto(dist,dist);
+	drive_goto(cell_size_ticks,cell_size_ticks);
 }
 
 void turn (char dir) //turn clockwise or anti-clockwise
@@ -140,7 +150,7 @@ void turn (char dir) //turn clockwise or anti-clockwise
 	{
 
 		case 'a' : 
-		drive_goto(-25,26);
+		drive_goto(-26,25);
 
 		switch (direction)
 		{
@@ -165,7 +175,7 @@ void turn (char dir) //turn clockwise or anti-clockwise
 		break;
 
 		case 'c' : 
-		drive_goto(26,-25);
+		drive_goto(25,-26);
 
 		switch (direction)
 		{
@@ -410,6 +420,14 @@ void adjust_angle(int *temp_weight) {
 
 }
 
+void adjust_one_wall(int *temp_weight) {
+	ping_wall(find_current_cell());
+	int difference = *temp_weight - avg_weight;
+	int ticks = difference * 10.0 / 3.25;
+	printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
+	drive_goto(ticks, ticks);
+}
+
 void check_walls () //check all sides for walls
 {
 	int i = find_current_cell();
@@ -417,9 +435,21 @@ void check_walls () //check all sides for walls
 	int memory_direction = direction;
 
 	ping_wall(i);
+	
+	turn('c');
+	ping_wall(i);
 
+	turn('a');
+	turn('a');
+	ping_wall(i);
 
-	if(cells[i].north == -1) {
+	turn('a');
+	ping_wall(i);
+
+	turn('c');
+	turn('c');
+
+	/*if(cells[i].north == -1) {
 		print("North unknown, checking...\n");
 		swap_direction('n');
 		ping_wall(i);
@@ -438,7 +468,7 @@ void check_walls () //check all sides for walls
 		print("West unknown, checking...\n");
 		swap_direction('w');
 		ping_wall(i);
-	}
+	}*/
 
 	int y_diff = north_weight - south_weight;
 	int y_sum = north_weight + south_weight;
@@ -448,6 +478,22 @@ void check_walls () //check all sides for walls
 	int diff_treshold = 18;
 	int sum_treshold = 60;
 
+	char adj_dir = '\0';
+	int *adj_weight;
+	if(cells[i].north) {
+		adj_dir = 'n';
+		adj_weight = &north_weight;
+	} else if(cells[i].east) {
+		adj_dir = 'e';
+		adj_weight = &east_weight;
+	} else if(cells[i].south) {
+		adj_dir = 's';
+		adj_weight = &south_weight;
+	} else if(cells[i].west) {
+		adj_dir = 'w';
+		adj_weight = &west_weight;
+	}
+
 	if((cells[i].west && cells[i].south) || (cells[i].north && cells[i].south)) {
 		if(cells[i].west && cells[i].south) {
 			swap_direction('e');
@@ -456,7 +502,10 @@ void check_walls () //check all sides for walls
 			swap_direction('n');
 			adjust_angle(&north_weight);
 		}
-	} 
+	} else {
+		swap_direction(adj_dir);
+		adjust_angle(adj_weight);
+	}
 
 	/*printf("Weight NESW: %d %d %d %d\n", north_weight, east_weight, south_weight, west_weight);
 	printf("X Difference: %d\n", x_diff);
@@ -487,8 +536,7 @@ void check_walls () //check all sides for walls
 			avg_weight += y_sum / 2;
 			avg_weight /= 2;
 		}
-	}
-	if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
+	} else if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
 		if(direction != 'e' && direction != 'w') swap_direction('e');
 		adjustment = (double) x_diff / 2.0;
 		if(avg_weight == -1) avg_weight = x_sum / 2;
@@ -496,6 +544,9 @@ void check_walls () //check all sides for walls
 			avg_weight += x_sum / 2;
 			avg_weight /= 2;
 		}
+	} else if(avg_weight != -1) {
+		swap_direction(adj_dir);
+		adjust_one_wall(adj_weight);
 	}
 
 	int ticks = adjustment * 10.0 / 3.25;
@@ -970,7 +1021,6 @@ void create_matrices() //fills up cost and pass matrices with cost values
 			printf("	Cell %d is connected to %d\n", i,w);
 		}
 	}
-
 }
 
 void print_cost_matrix()
@@ -1087,14 +1137,6 @@ void shortest_path(int i, int j)
 	}
 }
 
-void adjust_one_wall(int *temp_weight) {
-	ping_wall(find_current_cell());
-	int difference = *temp_weight - avg_weight;
-	int ticks = difference * 10.0 / 3.25;
-	printf("Adjusting %d ticks in direction %c . . .\n", ticks, direction);
-	drive_goto(ticks, ticks);
-}
-
 void follow_shortest() {
 
 	printf("Following the shortest path:\n");
@@ -1178,10 +1220,48 @@ void convert_unknown_to_walls() {
 	}
 }
 
+void rotateZeroRadius(double radians) {
+  //double radians = PI * (double) angle / 180.0;
+  double distancePerWheel = radians * ABW / 2;
+  int ticksPerWheel = distancePerWheel / DPT;
+  drive_goto(ticksPerWheel, -ticksPerWheel);
+}
+
+double acos(double x) {
+   return (-0.69813170079773212 * x * x - 0.87266462599716477) * x + 1.5707963267948966;
+}
+
+void fix_angle(char wall_dir, char check_dir)
+{
+	swap_direction(wall_dir);
+	int temp_dist = pingDistance();
+	printf("X1 = %d\n", temp_dist);
+	swap_direction(check_dir);
+	move_forward();
+	swap_direction(wall_dir);
+	int temp_dist_2 = pingDistance();
+	printf("X2 = %d\n", temp_dist_2);
+	double cosin = (double) (temp_dist - temp_dist_2) / (double) cell_size_cm;
+	printf("Cos: %f\n", cosin);
+	double radians = PI / 2.0 - acos(cosin);
+	printf("Difference: %d\n", temp_dist - temp_dist_2);
+	printf("Rotating: %f\n", radians);
+	if(temp_dist - temp_dist_2 < 0) {
+		rotateZeroRadius(-radians);
+	} else {
+		rotateZeroRadius(radians);
+	}
+}
+
 int main (void)
 {
 
 	printf("Race Algorithm v0.8.6\n\n");
+
+	drive_goto(-3, 3);
+	fix_angle('w', 'n');
+ 
+	return 0;
 
 	initialise_cells(); // initiaise cells in the map with indices and false for all walls
 
@@ -1197,6 +1277,11 @@ int main (void)
 	shortest_path(3,0);
 
 	follow_shortest();
+
+	swap_direction('s');
+	move_forward();
+	swap_direction('n');
+
 
 	return 0;
 }
