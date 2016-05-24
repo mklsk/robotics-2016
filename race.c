@@ -1,14 +1,16 @@
 #include "simpletools.h"  
 #include "abdrive.h" 
 #include "ping.h"
+//#include <string.h>
+//#include <stdlib.h>
+//#include <limits.h>
 
-/* Activity bot width (ABW) in millimetres */
+#define INFINITY 9999
+#define MAX 16
 #define ABW 106
- 
-//Distance per tick (DPT) in millimetres
 #define DPT 3.25
-
 #define PI 3.14159265358979323846
+
 
 typedef struct Cell {
    int x;
@@ -922,7 +924,7 @@ void tremaux() //do tremaux algorithm
 	l = find_cell(goal3_x, goal3_y);
 
 
-	while(cells[k].visited == 0 || cells[m].visited == 0 || cells[l].visited == 0)
+	while(cells[k].visited == 0 || cells[l].visited == 0 || cells[m].visited == 0 )
 	{
 		cell_analysis();
 
@@ -1086,7 +1088,7 @@ void print_cost_matrix()
 	printf("\n");
 }
 
-void print_pass_matrix()
+/*void print_pass_matrix()
 {
 	int i, j;
 
@@ -1133,7 +1135,7 @@ void floyds()
 		}
 
 	}
-}
+}*/
 
 void path_init()
 {
@@ -1144,35 +1146,68 @@ void path_init()
 	}
 }
 
-void shortest_path(int i, int j)
+/*int* char_to_int(char* src)
+{
+	int l = strlen(src);
+	int* arr = malloc (sizeof(int)*l);
+
+	int x;
+
+
+	for (x = 0; x < l; x++)
+	{
+		arr[x] = src[x] - '0';
+	}
+
+	free(src);
+	
+	return arr;
+
+}
+
+char* append(char* one, char* two)
+{
+	int one_l = strlen(one);
+	int two_l = strlen(two);
+
+	char* arr = malloc (sizeof(char) * (one_l + two_l));
+	strcat(arr, one);
+	strcat(arr, two);
+
+	free(one);
+	free(two);
+
+	return arr;
+}
+
+char* shortest_path(int i, int j)
 {
 	int r,k;
 
 	if (cost_matrix[i][j] == 99)
 	{
-		return;
+		char* arr = malloc(sizeof(char)*0);
+		printf("empty arr\n");
+		return arr;
 	}
 
 	k = pass_matrix[i][j];
 
 	if (k == -1)
 	{
-		for (r = 0; r < 16; r++)
-		{
-			if (short_path[r] == -1)
-			{
-				short_path[r] = j;
-				return;
-			}
-		}
+		char* arr = malloc(sizeof(char)*1);
+		*arr = j;
+		printf("single node %d\n", j);
+		return arr;	
 	}
 
 	else
 	{
-		shortest_path(i, k);
-		shortest_path(k, j);
+		printf("good\n");
+		return append(shortest_path(i, k), shortest_path(k, j));
+
 	}
-}
+}*/
 
 void follow_shortest(int do_adjustment) {
 
@@ -1285,7 +1320,6 @@ void follow_shortest(int do_adjustment) {
 		
 		k++;
 	}
-
 }
 
 
@@ -1302,6 +1336,7 @@ void convert_unknown_to_walls() {
 
 
 double acos(double x) {
+
    return (-0.69813170079773212 * x * x - 0.87266462599716477) * x + 1.5707963267948966;
 }
 
@@ -1319,20 +1354,100 @@ void fix_angle(char wall_dir, char check_dir)
 	double cosin = (double) temp_diff / (double) cell_size_cm;
 	printf("Cos: %f\n", cosin);
 	double radians = PI / 2.0 - acos(cosin);
-	printf("Difference: %d\n", temp_diff);
+	printf("Difference: %lf\n", temp_diff);
 	printf("Rotating: %f\n", radians);
 	rotateZeroRadius(radians);
+}
+
+void dijikstra(int G[MAX][MAX], int n, int startnode, int endnode)
+{
+	int cost[MAX][MAX], distance[MAX], pred[MAX];
+	int visited[MAX], count, mindistance, nextnode, i,j;
+	for(i=0;i < n;i++)
+		for(j=0;j < n;j++)
+			if(G[i][j]==0)
+				cost[i][j]=INFINITY;
+			else
+				cost[i][j]=G[i][j];
+	
+	for(i=0;i< n;i++)
+	{
+		distance[i]=cost[startnode][i];
+		pred[i]=startnode;
+		visited[i]=0;
+	}
+	distance[startnode]=0;
+	visited[startnode]=1;
+	count=1;
+	while(count < n-1){
+		mindistance=INFINITY;
+		for(i=0;i < n;i++)
+			if(distance[i] < mindistance&&!visited[i])
+			{
+				mindistance=distance[i];
+				nextnode=i;
+			}
+		visited[nextnode]=1;
+		for(i=0;i < n;i++)
+			if(!visited[i])
+				if(mindistance+cost[nextnode][i] < distance[i])
+				{
+					distance[i]=mindistance+cost[nextnode][i];
+					pred[i]=nextnode;
+				}
+			count++;
+	}
+ 
+	for(i=0;i < n;i++)
+		if(i == endnode)
+		{
+			printf("\nDistance of %d = %d", i, distance[i]);
+			printf("\nPath = %d", i);
+			int count = 1;
+			int temp[16];
+			temp[0] = i;
+			j=i;
+
+			do
+			{
+				j=pred[j];
+				printf(" <-%d", j);
+				temp[count] = j;
+				count++; 
+			}
+			while(j!=startnode);
+
+			printf("\n");
+
+			int x = 0;
+
+			for(x = 0; x < count; x++)
+			{
+				printf("%d ", temp[x]);
+			}
+			printf(" - temp\n");
+
+			x = 0;
+			int y;
+			count--;
+			print("Count - %d\n", count);
+
+			for(y = count; y >= 0; y--)
+			{
+				short_path[x] = temp[count];
+				printf("%d\n", short_path[x]);
+				count--;
+				x++;
+			}
+
+
+		}
 }
 
 int main (void)
 {
 
 	printf("Race Algorithm v0.8.7\n\n");
-
-	// drive_goto(-3, 3);
-	// fix_angle('w', 'n');
- 
-	// return 0;
 
 	initialise_cells(); // initiaise cells in the map with indices and false for all walls
 
@@ -1342,11 +1457,10 @@ int main (void)
 
 	create_matrices();
 	print_cost_matrix();
-	floyds();
-	print_pass_matrix();
-	path_init();
-	shortest_path(3,0); //get dynamic short path from ANY final point
 
+	path_init();
+
+	dijikstra(cost_matrix,16,find_current_cell(),0);
 	follow_shortest(1);
 
 	swap_direction('s');
@@ -1356,8 +1470,12 @@ int main (void)
 	//blink light
 
 	move_forward();
-	shortest_path(0,15);
+	path_init();
+	dijikstra(cost_matrix,16,0,15);
 	follow_shortest(0);
+
+	//blink light
+
 
 
 
