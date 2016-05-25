@@ -1,0 +1,69 @@
+{
+    "robotsimulator":
+    {
+	"title": "Maze Map 1",
+	"arenaSize": [1600, 2000],
+	"robots":
+	[
+	    {
+		"id": 0,
+		"type": "ActivityBot",
+		"startingPose": [200, 172, 90]
+	    }
+	],
+	"walls":
+	[
+            {
+		"startPoint": [0,0],
+		"endPoint": [20,2000]
+	    },
+	    {
+		"startPoint": [20,2000],
+		"endPoint": [1600, 1970]
+	    },
+	    {
+		"startPoint": [1600,1970],
+		"endPoint": [1600, 430]
+	    },
+	    {
+		"startPoint": [1600,430],
+		"endPoint": [450, 400]
+	    },
+            {
+		"startPoint": [450,400],
+		"endPoint": [450, 0]
+	    },
+            {
+		"startPoint": [450,0],
+		"endPoint": [0, 0]
+	    },
+            {
+		"startPoint": [380,1200],
+		"endPoint": [400, 1600]
+	    },
+            {
+		"startPoint": [400,1600],
+		"endPoint": [800, 1630]
+	    },
+            {
+		"startPoint": [400,820],
+		"endPoint": [1200, 800]
+	    },
+            {
+		"startPoint": [1200,800],
+		"endPoint": [1160, 1600]
+	    },
+            {
+		"startPoint": [1160,1600],
+		"endPoint": [1600, 1600]
+	    }
+	],
+        "labels":
+	[
+            {
+                "text": "Start",
+                "centre": [200, 200]
+            }
+        ]
+    }	
+}
