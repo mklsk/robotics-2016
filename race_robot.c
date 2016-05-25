@@ -583,14 +583,14 @@ void move () //set of actions performed each time the robot moves
 
 	if (cells[i].visited == 0)
 	{
-	check_walls();
-	determ_type(i);
-	checked_walls = 1;
+		check_walls();
+		determ_type(i);
+		checked_walls = 1;
 	}
 
 	else
 	{
-	checked_walls = 0;
+		checked_walls = 0;
 	}
 
 
@@ -1084,30 +1084,77 @@ void follow_shortest(int do_adjustment) {
 		prev_x = current_x;
 		prev_y = current_y;
 
+
+		int j = 1;
+
 		if(cell.x != current_x) {
 			if(cell.x > current_x) {
 				swap_direction('e');
-				move_forward();
-				current_x++;
+				if(!do_adjustment) {
+					while(short_path[k + j] != -1) {
+						int cell_curr_temp = short_path[k + j - 1];
+						int cell_next_temp = short_path[k + j];
+						if(cells[cell_next_temp].x > cells[cell_curr_temp].x) {
+							j++;
+						} else {
+							break;
+						}
+					}
+				}
+				drive_goto(cell_size_ticks * j, cell_size_ticks * j);
+				current_x += j;
 			} else {
 				swap_direction('w');
-				move_forward();
-				current_x--;
+				if(!do_adjustment) {
+					while(short_path[k + j] != -1) {
+						int cell_curr_temp = short_path[k + j - 1];
+						int cell_next_temp = short_path[k + j];
+						if(cells[cell_next_temp].x < cells[cell_curr_temp].x) {
+							j++;
+						} else {
+							break;
+						}
+					}
+				}
+				drive_goto(cell_size_ticks * j, cell_size_ticks * j);
+				current_x -= j;
 			}
 		} else if(cell.y != current_y) {
 			if(cell.y > current_y) {
 				swap_direction('n');
-				move_forward();
-				current_y++;
+				if(!do_adjustment) {
+					while(short_path[k + j] != -1) {
+						int cell_curr_temp = short_path[k + j - 1];
+						int cell_next_temp = short_path[k + j];
+						if(cells[cell_next_temp].y > cells[cell_curr_temp].y) {
+							j++;
+						} else {
+							break;
+						}
+					}
+				}
+				drive_goto(cell_size_ticks * j, cell_size_ticks * j);
+				current_y += j;
 			} else {
 				swap_direction('s');
-				move_forward();
-				current_y--;
+				if(!do_adjustment) {
+					while(short_path[k + j] != -1) {
+						int cell_curr_temp = short_path[k + j - 1];
+						int cell_next_temp = short_path[k + j];
+						if(cells[cell_next_temp].y < cells[cell_curr_temp].y) {
+							j++;
+						} else {
+							break;
+						}
+					}
+				}
+				drive_goto(cell_size_ticks * j, cell_size_ticks * j);
+				current_y -= j;
 			}
 		}
 		
 		
-		k++;
+		k += j;
 	}
 }
 
