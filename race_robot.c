@@ -950,25 +950,26 @@ void create_matrices() //fills up cost and pass matrices with cost values
 
 	for (i = 0; i < 16; i++)
 	{
-		n_can = 0;
-		s_can = 0;
-		e_can = 0;
-		w_can = 0;
+		n_can = 1;
+		s_can = 1;
+		e_can = 1;
+		w_can = 1;
 
-		if(cells[i].visited == 0)
+		/*if(cells[i].visited == 0)
 		{
 			continue;
-		}
+		}*/
 
 		if(cells[i].y < 4) //check if cell on the north is possible
 		{
 			x = cells[i].x;
 			y = cells[i].y + 1;
 			n = find_cell(x,y); //get cell on the north
-			if(cells[n].visited > 0)
-			{
-			n_can = 1;
-			}
+
+			// if(cells[n].visited > 0)
+			// {
+			// n_can = 1;
+			// }
 		}
 
 		if(cells[i].y > 1) //check if cell on the south is possible
@@ -976,10 +977,11 @@ void create_matrices() //fills up cost and pass matrices with cost values
 			x = cells[i].x;
 			y = cells[i].y - 1;
 			s = find_cell(x,y); //get cell on the south
-			if(cells[s].visited > 0)
-			{
-				s_can = 1;
-			}
+
+			// if(cells[s].visited > 0)
+			// {
+			// 	s_can = 1;
+			// }
 		}
 
 		if(cells[i].x < 4) //check if cell on the east is possible
@@ -987,10 +989,11 @@ void create_matrices() //fills up cost and pass matrices with cost values
 			x = cells[i].x + 1;
 			y = cells[i].y;
 			e = find_cell(x,y); //get cell on the east
-			if(cells[e].visited > 0)
-			{
-				e_can = 1;
-			}
+
+			// if(cells[e].visited > 0)
+			// {
+			// 	e_can = 1;
+			// }
 		}
 
 		if(cells[i].x > 1) //check if cell on the south is possible
@@ -998,11 +1001,10 @@ void create_matrices() //fills up cost and pass matrices with cost values
 			x = cells[i].x - 1;
 			y = cells[i].y;
 			w = find_cell(x,y); //get cell on the south
-			if(cells[w].visited > 0)
-			{
-				w_can = 1;
-
-			}
+			// if(cells[w].visited > 0)
+			// {
+			// 	w_can = 1;
+			// }
 
 		}
 
