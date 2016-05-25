@@ -219,10 +219,12 @@ void ping_wall(int i) //check current side for walls
 {
 	if (1)//pingDistance() < 25) //if closer than 25 - write that there is a wall
 	{
+     int temp_ping_dist;
 		switch (direction)
 		{
 			case 'n' :
-				if(pingDistance() < 30) 
+          temp_ping_dist = pingDistance();
+				if(temp_ping_dist < 30) 
 				{
 					cells [i].north = 1;
 					//printf("wall on n\n");
@@ -231,11 +233,12 @@ void ping_wall(int i) //check current side for walls
             int neighbour = find_cell(cells[i].x, cells[i].y + 1);
             if(neighbour != -1) cells[neighbour].south = 0;
 				}
-				north_weight = pingDistance(); //save distance from north wall
+				north_weight = temp_ping_dist; //save distance from north wall
 				break;
 
 			case 'w' :
-				if(pingDistance() < 30) 
+          temp_ping_dist = pingDistance();
+				if(temp_ping_dist < 30) 
 				{
 					cells [i].west = 1;
 					//printf("wall on w\n");
@@ -244,11 +247,13 @@ void ping_wall(int i) //check current side for walls
             int neighbour = find_cell(cells[i].x - 1, cells[i].y);
             if(neighbour != -1) cells[neighbour].east = 0;
 				}
-				west_weight = pingDistance(); //save distance from north wall
+				west_weight = temp_ping_dist; //save distance from north wall
+    printf("WW: %d\n", west_weight);
 				break;
 
 			case 's' :
-				if(pingDistance() < 30) 
+          temp_ping_dist = pingDistance();
+				if(temp_ping_dist < 30) 
 					{
 						cells [i].south = 1;
 						//printf("wall on s\n");
@@ -257,11 +262,12 @@ void ping_wall(int i) //check current side for walls
               int neighbour = find_cell(cells[i].x, cells[i].y - 1);
               if(neighbour != -1) cells[neighbour].north = 0;
 					}
-				south_weight = pingDistance(); //save distance from north wall
+				south_weight = temp_ping_dist; //save distance from north wall
 				break;
 
 			case 'e' :
-				if(pingDistance() < 30) 
+          temp_ping_dist = pingDistance();
+				if(temp_ping_dist < 30) 
 					{
 						cells [i].east = 1;
 						//printf("wall on e\n");
@@ -270,7 +276,7 @@ void ping_wall(int i) //check current side for walls
               int neighbour = find_cell(cells[i].x + 1, cells[i].y);
               if(neighbour != -1) cells[neighbour].west = 0;
 					}
-				east_weight = pingDistance(); //save distance from north wall
+				east_weight = temp_ping_dist; //save distance from north wall
 				break;
 
 		}
@@ -385,8 +391,8 @@ void adjust_one_wall(int *temp_weight) {
   int adj_weight = avg_weight;
   adj_weight = 16;
 	int difference = *temp_weight - adj_weight;
-	int ticks = -difference * 10.0 / 3.25;
-  printf("D %d, A %d\n", *temp_weight, ticks);
+	int ticks = difference * 10.0 / 3.25;
+  //printf("D %d, A %d\n", *temp_weight, ticks);
 	drive_goto(ticks, ticks);
 	*temp_weight = avg_weight;
 }
@@ -459,6 +465,8 @@ void check_wall_weights() {
 		swap_direction('w');
 		ping_wall(i);
 	}
+ 
+  //printf("%d %d %d %d\n", north_weight, east_weight, south_weight, west_weight);
 	
 	swap_direction(memory_direction);
 
@@ -540,6 +548,7 @@ void check_walls () //check all sides for walls
 	double adjustment = 0;
 
 	if(abs(y_diff) < diff_treshold && y_sum < sum_treshold) {
+   //printf("A VER\n");
 		if(direction != 'n' && direction != 's') swap_direction('n');
 		adjustment = (double) y_diff / 2.0;
 		north_weight = y_sum / 2;
@@ -549,8 +558,12 @@ void check_walls () //check all sides for walls
 			avg_weight += y_sum / 2;
 			avg_weight /= 2;
 		}
-		
+		if(adj_dir_2 != '\0') {
+  		swap_direction(adj_dir_2);
+  		adjust_one_wall(adj_weight_2);
+	  }
 	} else if(abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
+   //printf("A HOR\n");
 		if(direction != 'e' && direction != 'w') swap_direction('e');
 		adjustment = (double) x_diff / 2.0;
 		west_weight = x_sum / 2;
@@ -560,12 +573,19 @@ void check_walls () //check all sides for walls
 			avg_weight += x_sum / 2;
 			avg_weight /= 2;
 		}
+      if(adj_dir_1 != '\0') {
+  		swap_direction(adj_dir_1);
+  		adjust_one_wall(adj_weight_1);
+	  }
 	} else if(avg_weight != -1) {
+   //printf("A SINGLE\n");
 	  if(adj_dir_1 != '\0') {
+     //printf("A SINGLE VER\n");
   		swap_direction(adj_dir_1);
   		adjust_one_wall(adj_weight_1);
 	  }
 	  if(adj_dir_2 != '\0') {
+     //printf("A SINGLE HOR\n");
   		swap_direction(adj_dir_2);
   		adjust_one_wall(adj_weight_2);
 	  }
@@ -1181,10 +1201,10 @@ void convert_unknown_to_walls() {
 	int i;
 	for (i = 0; i < 16; i++)
 	{
-		if(cells[i].north == -1) cells[i].north = 0;
-		if(cells[i].south == -1) cells[i].south = 0;
-		if(cells[i].east == -1) cells[i].east = 0;
-		if(cells[i].west == -1) cells[i].west = 0;
+		if(cells[i].north == -1) cells[i].north = 1;
+		if(cells[i].south == -1) cells[i].south = 1;
+		if(cells[i].east == -1) cells[i].east = 1;
+		if(cells[i].west == -1) cells[i].west = 1;
 	}
 }
 
@@ -1289,6 +1309,9 @@ int main (void)
 	
 
 	initialise_cells(); // initiaise cells in the map with indices and false for all walls
+
+	printf("%d\n", pingDistance());
+	printf("%d\n", pingDistance());
 
 	tremaux();
 
