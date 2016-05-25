@@ -54,7 +54,7 @@ int prev_south_weight;
 int prev_east_weight;
 int prev_west_weight;
 
-int avg_weight = -1;
+int avg_weight = 16;
 
 int checked_walls = 0;
 
@@ -103,10 +103,10 @@ int find_cell(int x, int y) //find a particular cell
 	for(i = 0; i<16; i++) //find current cell
 	{
 		if(cells[i].x == x && cells[i].y == y)
-			break;
+        return i;
 	}
 
-	return i;
+	return -1;
 }
 
 int find_current_cell() //find, which cell does the robot stand now on
@@ -228,6 +228,8 @@ void ping_wall(int i) //check current side for walls
 					//printf("wall on n\n");
 				} else {
 					cells [i].north = 0;
+            int neighbour = find_cell(cells[i].x, cells[i].y + 1);
+            if(neighbour != -1) cells[neighbour].south = 0;
 				}
 				north_weight = pingDistance(); //save distance from north wall
 				break;
@@ -239,6 +241,8 @@ void ping_wall(int i) //check current side for walls
 					//printf("wall on w\n");
 				} else {
 					cells [i].west = 0;
+            int neighbour = find_cell(cells[i].x - 1, cells[i].y);
+            if(neighbour != -1) cells[neighbour].east = 0;
 				}
 				west_weight = pingDistance(); //save distance from north wall
 				break;
@@ -250,6 +254,8 @@ void ping_wall(int i) //check current side for walls
 						//printf("wall on s\n");
 					} else {
 						cells [i].south = 0;
+              int neighbour = find_cell(cells[i].x, cells[i].y - 1);
+              if(neighbour != -1) cells[neighbour].north = 0;
 					}
 				south_weight = pingDistance(); //save distance from north wall
 				break;
@@ -261,6 +267,8 @@ void ping_wall(int i) //check current side for walls
 						//printf("wall on e\n");
 					} else {
 						cells [i].east = 0;
+              int neighbour = find_cell(cells[i].x + 1, cells[i].y);
+              if(neighbour != -1) cells[neighbour].west = 0;
 					}
 				east_weight = pingDistance(); //save distance from north wall
 				break;
@@ -279,6 +287,8 @@ void adjust_angle_triangle(int x1, int x2) {
 
 	double radians = PI / 2.0 - acos(cosin);
 
+  //printf("Adjusting triangle: X1 = %d, X2 = %d, R = %f\n", x1, x2, radians);
+
 	rotateZeroRadius(radians);
 }
 
@@ -293,6 +303,7 @@ void swap_direction(char goal) //turn robot to a desired direction
 			switch (direction)
 			{
 				case ('s'):
+				//rotateZeroRadius(PI);
 				turn('c');
 				turn('c');
 				break;
@@ -311,6 +322,7 @@ void swap_direction(char goal) //turn robot to a desired direction
 			switch (direction)
 			{
 				case ('n'):
+				//rotateZeroRadius(PI);
 				turn('c');
 				turn('c');
 				break;
@@ -337,6 +349,7 @@ void swap_direction(char goal) //turn robot to a desired direction
 				break;
 
 				case ('w'):
+				//rotateZeroRadius(PI);
 				turn('c');
 				turn('c');
 				break;
@@ -355,6 +368,7 @@ void swap_direction(char goal) //turn robot to a desired direction
 				break;
 
 				case ('e'):
+				//rotateZeroRadius(PI);
 				turn('c');
 				turn('c');
 				break;
@@ -368,8 +382,10 @@ void swap_direction(char goal) //turn robot to a desired direction
 
 void adjust_one_wall(int *temp_weight) {
 	ping_wall(find_current_cell());
-	int difference = *temp_weight - avg_weight;
-	int ticks = difference * 10.0 / 3.25;
+  int adj_weight = avg_weight;
+  adj_weight = 16;
+	int difference = *temp_weight - adj_weight;
+	int ticks = -difference * 10.0 / 3.25;
 	drive_goto(ticks, ticks);
 	*temp_weight = avg_weight;
 }
@@ -404,21 +420,22 @@ void check_wall_weights() {
 
 	ping_wall(i);
 	
-	
-	turn('c');
-	ping_wall(i);
-
-	turn('a');
-	turn('a');
-	ping_wall(i);
-
-	turn('a');
-	ping_wall(i);
-
-	turn('c');
-	turn('c');
-	
 	/*
+	turn('c');
+	ping_wall(i);
+
+	turn('a');
+	turn('a');
+	ping_wall(i);
+
+	turn('a');
+	ping_wall(i);
+
+	turn('c');
+	turn('c');
+  */	
+ 
+	
   char memory_direction = direction;
 
 	if(cells[i].north != 0) {
@@ -442,7 +459,7 @@ void check_wall_weights() {
 		ping_wall(i);
 	}
 	
-	swap_direction(memory_direction);*/
+	swap_direction(memory_direction);
 
 }
 
@@ -875,10 +892,10 @@ void tremaux() //do tremaux algorithm
 	while(cells[k].visited == 0 || cells[l].visited == 0 || cells[m].visited == 0 )
 	{
 		cell_analysis();
-
+    /*
 		int i = find_current_cell();
 		if (i == k || i == l || i == m)
-			printf("Master I've found him!!! >:3\n");
+			printf("Master I've found him!!! >:3\n");*/
 
 		move();
 
