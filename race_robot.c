@@ -386,6 +386,7 @@ void adjust_one_wall(int *temp_weight) {
   adj_weight = 16;
 	int difference = *temp_weight - adj_weight;
 	int ticks = -difference * 10.0 / 3.25;
+  printf("D %d, A %d\n", *temp_weight, ticks);
 	drive_goto(ticks, ticks);
 	*temp_weight = avg_weight;
 }
@@ -439,22 +440,22 @@ void check_wall_weights() {
   char memory_direction = direction;
 
 	if(cells[i].north != 0) {
-		print("North unknown, checking...\n");
+		//print("North unknown, checking...\n");
 		swap_direction('n');
 		ping_wall(i);
 	}
 	if(cells[i].east != 0) {
-		print("East unknown, checking...\n");
+		//print("East unknown, checking...\n");
 		swap_direction('e');
 		ping_wall(i);
 	}
 	if(cells[i].south != 0) {
-		print("South unknown, checking...\n");
+		//print("South unknown, checking...\n");
 		swap_direction('s');
 		ping_wall(i);
 	}
 	if(cells[i].west != 0) {
-		print("West unknown, checking...\n");
+		//print("West unknown, checking...\n");
 		swap_direction('w');
 		ping_wall(i);
 	}
