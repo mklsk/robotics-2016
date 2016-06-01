@@ -1,29 +1,13 @@
-#include "simpletools.h"  
-#include "abdrive.h" 
+#include "simpletools.h"
+#include "abdrive.h"
 #include "ping.h"
 
 #define INFINITY 9999
+#define MAX 16
 #define ABW 106
 #define DPT 3.25
 #define PI 3.14159265358979323846
-#define CELL_SIZE_CM 38.0
-#define DEFAULT_ADJUSTMENT (CELL_SIZE_CM / 2 - 3)
 
-
-/*
- * TEMPORARY DEFINITIONS TO FIX CLION ERRORS
- */
-
-int abs(int x);
-void drive_goto(int x, int y);
-int ping_cm(int x);
-
-/*
- * TEMPORARY DEFINITIONS END
- */
-
-static const int cell_size_ticks = (int) (CELL_SIZE_CM * DPT);
-static const int default_adjustment = (int) (DEFAULT_ADJUSTMENT);
 
 typedef struct Cell {
     int x;
@@ -38,7 +22,11 @@ typedef struct Cell {
 
 Cell cells[16]; //array of cells
 
+int cell_size_cm = 38;
+int cell_size_ticks = DPT * 38;
+
 int cost_matrix[16][16];
+int pass_matrix[16][16];
 int short_path[16];
 
 char direction = 'n';
@@ -72,30 +60,37 @@ int prev_south_weight;
 int prev_east_weight;
 int prev_west_weight;
 
-int checked_walls = 0;
+/*
+ * Preset for average distance from the wall
+ */
+int avg_weight = 16;
 
 /*
  * Indicates whether the robot has arrived in the current cell without mapping the previous one, equal to true when the
  * robot traverses a path that it has visited before using Tremaux's algorithm
  */
-int drive_through = 0;
+int checked_walls = 0;
 
 /*
  * Zero radius rotation which calculates the amount of ticks to send to each wheel based on the amount of radians requested
  */
 void rotateZeroRadius(double radians) {
+    //double radians = PI * (double) angle / 180.0;
     double distancePerWheel = radians * ABW / 2;
-    int ticksPerWheel = (int) (distancePerWheel / DPT);
+    int ticksPerWheel = distancePerWheel / DPT;
     drive_goto(ticksPerWheel, -ticksPerWheel);
+    //printf("Ticks rotation: %d\n", ticksPerWheel);
 }
-
 
 /*
  * Function to calculate the new position of the robot and update the previous position
  */
-void update_position() {
+void update_position() //update robots current position
+{
+
     prev_x = current_x;
     prev_y = current_y;
+
     switch (direction) {
         case 'n' :
             current_y++;
@@ -113,10 +108,7 @@ void update_position() {
             current_x++;
             break;
     }
-
-    printf("x - %d y - %d \n", current_x, current_y);
 }
-
 
 /*
  * Functions calculating the current cell index in an array based on its X and Y coordinates
@@ -135,39 +127,37 @@ int find_cell(int x, int y)
 }
 
 int find_current_cell() { return find_cell(current_x, current_y); }
-int find_prev_cell() { return find_cell(prev_x, prev_y); }
 
+int find_prev_cell() { return find_cell(prev_x, prev_y); }
 
 /*
  * Update number of times the current cell was visited
  */
-void update_visited()
-{
+void update_visited() {
     int i = find_current_cell();
     cells[i].visited++;
 }
 
-
 /*
  * Measure distance from a wall in current direction
  */
-int pingDistance() { return ping_cm(8); }
-
+int pingDistance() {
+    return ping_cm(8);;
+}
 
 /*
  * Move one cell forward in current direction
  */
-void move_forward() { drive_goto(cell_size_ticks, cell_size_ticks); }
-
+void move_forward() {
+    drive_goto(cell_size_ticks, cell_size_ticks);
+}
 
 /*
  * Turn clockwise or anti-clockwise
  */
-void turn(char dir)
-{
-
+void turn(char dir) {
+    int left, right;
     switch (dir) {
-
         case 'a' :
             drive_goto(-26, 25);
 
@@ -216,18 +206,19 @@ void turn(char dir)
     }
 }
 
-
 /*
  * Update the Cell struct representing the wall the robot is currently facing using the ping sensor. Additionally,
- * notify te neighbour about the absence of the w
+ * notify te neighbour about the absence of the wall
  */
 void ping_wall(int i)
 {
-    int temp_ping_dist = pingDistance();
+    int temp_ping_dist;
     switch (direction) {
         case 'n' :
+            temp_ping_dist = pingDistance();
             if (temp_ping_dist < 30) {
                 cells[i].north = 1;
+                //printf("wall on n\n");
             } else {
                 cells[i].north = 0;
                 int neighbour = find_cell(cells[i].x, cells[i].y + 1);
@@ -237,8 +228,10 @@ void ping_wall(int i)
             break;
 
         case 'w' :
+            temp_ping_dist = pingDistance();
             if (temp_ping_dist < 30) {
                 cells[i].west = 1;
+                //printf("wall on w\n");
             } else {
                 cells[i].west = 0;
                 int neighbour = find_cell(cells[i].x - 1, cells[i].y);
@@ -248,8 +241,10 @@ void ping_wall(int i)
             break;
 
         case 's' :
+            temp_ping_dist = pingDistance();
             if (temp_ping_dist < 30) {
                 cells[i].south = 1;
+                //printf("wall on s\n");
             } else {
                 cells[i].south = 0;
                 int neighbour = find_cell(cells[i].x, cells[i].y - 1);
@@ -259,8 +254,10 @@ void ping_wall(int i)
             break;
 
         case 'e' :
+            temp_ping_dist = pingDistance();
             if (temp_ping_dist < 30) {
                 cells[i].east = 1;
+                //printf("wall on e\n");
             } else {
                 cells[i].east = 0;
                 int neighbour = find_cell(cells[i].x + 1, cells[i].y);
@@ -285,9 +282,8 @@ double acos(double x) {
 void adjust_angle_triangle(int x1, int x2) {
     if (prev_x == current_x && prev_y == current_y) return;
     int temp_diff = x1 - x2;
-    double cosine = (double) temp_diff / CELL_SIZE_CM;
+    double cosine = (double) temp_diff / (double) cell_size_cm;
     double radians = PI / 2.0 - acos(cosine);
-    if(drive_through) radians = -radians;
     rotateZeroRadius(radians);
 }
 
@@ -372,19 +368,18 @@ void swap_direction(char goal)
     }
 }
 
-
 /*
  * Adjust the distance to default distance using the wall the robot is currently pointing to
  */
 void adjust_one_wall(int *temp_weight) {
     ping_wall(find_current_cell());
-    int adj_weight = default_adjustment;
+    int adj_weight = avg_weight;
+    adj_weight = 16;
     int difference = *temp_weight - adj_weight;
-    int ticks = (int) (difference * 10.0 / 3.25);
+    int ticks = difference * 10.0 / 3.25;
     drive_goto(ticks, ticks);
-    *temp_weight = adj_weight;
+    *temp_weight = avg_weight;
 }
-
 
 /*
  * Measure distances form walls in a current cell.
@@ -417,11 +412,8 @@ void check_wall_weights() {
             east_weight = 100;
             break;
     }
-
     ping_wall(i);
-
     char memory_direction = direction;
-
     if (cells[i].north != 0) {
         swap_direction('n');
         ping_wall(i);
@@ -438,39 +430,8 @@ void check_wall_weights() {
         swap_direction('w');
         ping_wall(i);
     }
-
     swap_direction(memory_direction);
 
-}
-
-/*
- * Adjust the angle using basic trigonometry, namely inverse cosine of the cosine value calculated using the distance
- * from the wall in the current and previous cells
- */
-void perform_angle_adjustment(int prev_cell, int curr_cell)
-{
-    int adj_weight_prev = 0;
-    int adj_weight_next = 0;
-    int do_adj = 0;
-    if (cells[prev_cell].north == 1 && cells[curr_cell].north == 1) {
-        adj_weight_next = north_weight;
-        adj_weight_prev = prev_north_weight;
-        do_adj = 1;
-    } else if (cells[prev_cell].east == 1 && cells[curr_cell].east == 1) {
-        adj_weight_next = -east_weight;
-        adj_weight_prev = -prev_east_weight;
-        do_adj = 1;
-    } else if (cells[prev_cell].south == 1 && cells[curr_cell].south == 1) {
-        adj_weight_next = -south_weight;
-        adj_weight_prev = -prev_south_weight;
-        do_adj = 1;
-    } else if (cells[prev_cell].west == 1 && cells[curr_cell].west == 1) {
-        adj_weight_next = west_weight;
-        adj_weight_prev = prev_west_weight;
-        do_adj = 1;
-    }
-
-    if (do_adj && checked_walls) adjust_angle_triangle(adj_weight_prev, adj_weight_next);
 }
 
 /*
@@ -479,12 +440,13 @@ void perform_angle_adjustment(int prev_cell, int curr_cell)
  */
 void check_walls()
 {
+
     check_wall_weights();
 
     int i = find_current_cell();
     int z = find_prev_cell();
 
-    char memory_direction = direction;
+    int memory_direction = direction;
 
     int y_diff = north_weight - south_weight;
     int y_sum = north_weight + south_weight;
@@ -493,8 +455,6 @@ void check_walls()
 
     int diff_treshold = 18;
     int sum_treshold = 60;
-
-    perform_angle_adjustment(z, i);
 
     char adj_dir_1 = '\0';
     int *adj_weight_1;
@@ -514,6 +474,31 @@ void check_walls()
         adj_dir_2 = 'w';
         adj_weight_2 = &west_weight;
     }
+
+
+    int adj_weight_prev;
+    int adj_weight_next;
+    int do_adj = 0;
+    if (cells[i].north == 1 && cells[z].north == 1) {
+        adj_weight_next = north_weight;
+        adj_weight_prev = prev_north_weight;
+        do_adj = 1;
+    } else if (cells[i].east == 1 && cells[z].east == 1) {
+        adj_weight_next = -east_weight;
+        adj_weight_prev = -prev_east_weight;
+        do_adj = 1;
+    } else if (cells[i].south == 1 && cells[z].south == 1) {
+        adj_weight_next = -south_weight;
+        adj_weight_prev = -prev_south_weight;
+        do_adj = 1;
+    } else if (cells[i].west == 1 && cells[z].west == 1) {
+        adj_weight_next = west_weight;
+        adj_weight_prev = prev_west_weight;
+        do_adj = 1;
+    }
+
+    if (do_adj && checked_walls) adjust_angle_triangle(adj_weight_prev, adj_weight_next);
+
 
     switch (direction) {
         case 's':
@@ -536,6 +521,11 @@ void check_walls()
         adjustment = (double) y_diff / 2.0;
         north_weight = y_sum / 2;
         south_weight = y_sum / 2;
+        if (avg_weight == -1) avg_weight = y_sum / 2;
+        else {
+            avg_weight += y_sum / 2;
+            avg_weight /= 2;
+        }
     } else if (abs(x_diff) < diff_treshold && x_sum < sum_treshold) {
         if (adj_dir_1 != '\0') {
             swap_direction(adj_dir_1);
@@ -545,7 +535,12 @@ void check_walls()
         adjustment = (double) x_diff / 2.0;
         west_weight = x_sum / 2;
         east_weight = x_sum / 2;
-    } else {
+        if (avg_weight == -1) avg_weight = x_sum / 2;
+        else {
+            avg_weight += x_sum / 2;
+            avg_weight /= 2;
+        }
+    } else if (avg_weight != -1) {
         if (adj_dir_1 != '\0') {
             swap_direction(adj_dir_1);
             adjust_one_wall(adj_weight_1);
@@ -556,7 +551,7 @@ void check_walls()
         }
     }
 
-    int ticks = (int) (adjustment * 10.0 / 3.25);
+    int ticks = adjustment * 10.0 / 3.25;
     drive_goto(ticks, ticks);
     swap_direction(memory_direction);
 
@@ -568,7 +563,6 @@ void check_walls()
 void determ_type(int i)
 {
     int sum = cells[i].north + cells[i].south + cells[i].east + cells[i].west;
-
     if (sum == 3)
         cells[i].type = 'd';
     if (sum == 2)
@@ -578,71 +572,53 @@ void determ_type(int i)
 }
 
 /*
- * Check which walls are available for one wall adjustment and apply it on said walls
- */
-void perform_one_wall_adjustment(int curr_cell) {
-    char adj_dir_1 = '\0';
-    int *adj_weight_1;
-    char adj_dir_2 = '\0';
-    int *adj_weight_2;
-    if (cells[curr_cell].north) {
-        adj_dir_1 = 'n';
-        adj_weight_1 = &north_weight;
-    } else if (cells[curr_cell].south) {
-        adj_dir_1 = 's';
-        adj_weight_1 = &south_weight;
-    }
-    if (cells[curr_cell].east) {
-        adj_dir_2 = 'e';
-        adj_weight_2 = &east_weight;
-    } else if (cells[curr_cell].west) {
-        adj_dir_2 = 'w';
-        adj_weight_2 = &west_weight;
-    }
-    char mem_dir = direction;
-    if (adj_dir_1 != '\0') {
-        swap_direction(adj_dir_1);
-        adjust_one_wall(adj_weight_1);
-    }
-    if (adj_dir_2 != '\0') {
-        swap_direction(adj_dir_2);
-        adjust_one_wall(adj_weight_2);
-    }
-    swap_direction(mem_dir);
-}
-
-/*
  * Move robot forward, update current position and perform adjustments if the cell has been visited before
  */
 void move()
 {
-
     move_forward();
     update_position();
-
     int i = find_current_cell();
-    int k = find_prev_cell();
-
     if (cells[i].visited == 0) {
         check_walls();
         determ_type(i);
         checked_walls = 1;
-        drive_through = 0;
+    } else {
+        checked_walls = 0;
+        int i = find_current_cell();
+        char adj_dir_1 = '\0';
+        int *adj_weight_1;
+        char adj_dir_2 = '\0';
+        int *adj_weight_2;
+        if (cells[i].north) {
+            adj_dir_1 = 'n';
+            adj_weight_1 = &north_weight;
+        } else if (cells[i].south) {
+            adj_dir_1 = 's';
+            adj_weight_1 = &south_weight;
+        }
+        if (cells[i].east) {
+            adj_dir_2 = 'e';
+            adj_weight_2 = &east_weight;
+        } else if (cells[i].west) {
+            adj_dir_2 = 'w';
+            adj_weight_2 = &west_weight;
+        }
+        char mem_dir = direction;
+        if (adj_dir_1 != '\0') {
+            swap_direction(adj_dir_1);
+            adjust_one_wall(adj_weight_1);
+        }
+        if (adj_dir_2 != '\0') {
+            swap_direction(adj_dir_2);
+            adjust_one_wall(adj_weight_2);
+        }
+        swap_direction(mem_dir);
     }
 
-    else {
-        checked_walls = 1;
-        check_wall_weights();
-        printf("Attempting adjustment...\n");
-        drive_through = 1;
-        perform_angle_adjustment(k, i);
-        perform_one_wall_adjustment(i);
-
-    }
 
     update_visited();
 }
-
 
 /*
  * Assign index and other basic value to cell structures
@@ -667,11 +643,10 @@ void initialise_cells()
 /*
  * Find a direction from which robot came, and thus shouldn't go there
  */
-char cant_go() 
+char cant_go()
 {
     char cant_go = '\0';
-
-    if (direction == 'n') //find direction from which robot came - can't go there
+    if (direction == 'n')
         cant_go = 's';
     if (direction == 's')
         cant_go = 'n';
@@ -679,7 +654,6 @@ char cant_go()
         cant_go = 'w';
     if (direction == 'w')
         cant_go = 'e';
-
     return cant_go;
 }
 
@@ -687,10 +661,10 @@ char cant_go()
  * Choose direction of new movement, if a robot is on an element of path
  * After it is chosen, turn towards the direction
  */
-void choose_direction_p() 
+void choose_direction_p()
 {
     char cant = cant_go();
-    char will_go = '\0';
+    char will_go;
     int i = find_current_cell();
 
     if (cells[i].north == 0 && cant != 'n')
@@ -701,10 +675,8 @@ void choose_direction_p()
         will_go = 'e';
     if (cells[i].west == 0 && cant != 'w')
         will_go = 'w';
-
     swap_direction(will_go);
 }
-
 
 /*
  * Choose a random direction in case if robot faces a new junction
@@ -712,23 +684,38 @@ void choose_direction_p()
 void choose_direct_rand_j()
 {
     char cant = cant_go();
-    char dest = '\0';
+    char dest;
     int i = find_current_cell();
     int n_av = 1;
     int s_av = 1;
     int e_av = 1;
     int w_av = 1;
 
-    if (cells[i].north == 1 || cant == 'n')
+    switch (cant) {
+        case ('n'):
+            n_av = 0;
+            break;
+
+        case ('s'):
+            s_av = 0;
+            break;
+
+        case ('e'):
+            e_av = 0;
+            break;
+
+        case ('w'):
+            w_av = 0;
+            break;
+    }
+    if (cells[i].north == 1)
         n_av = 0;
-    if (cells[i].south == 1 || cant == 's')
+    if (cells[i].south == 1)
         s_av = 0;
-    if (cells[i].east == 1 || cant == 'e')
+    if (cells[i].east == 1)
         e_av = 0;
-    if (cells[i].west == 1 || cant == 'w')
+    if (cells[i].west == 1)
         w_av = 0;
-
-
     if (n_av == 1) {
         dest = 'n';
     }
@@ -741,14 +728,14 @@ void choose_direct_rand_j()
     if (e_av == 1) {
         dest = 'e';
     }
-    
     swap_direction(dest);
 }
 
 /*
  * Rotate the robot 180 degrees
  */
-void rotate_180() {
+void rotate_180()
+{
     switch (direction) {
         case ('n'):
             swap_direction('s');
@@ -776,14 +763,16 @@ void rotate_180() {
 void with_least_marks()
 {
     int min = 3;
-    char min_dir = '\0';
+    char min_dir;
     int i = find_current_cell();
     int j;
 
 
-    if (cells[i].east == 0)
+    if (cells[i].east == 0) //if can enter cell on east
     {
-        j = find_cell(current_x + 1, current_y);
+        current_x++; //find cell on east
+        j = find_current_cell();
+        current_x--;
 
         if (cells[j].visited < min) {
             min = cells[j].visited;
@@ -793,7 +782,9 @@ void with_least_marks()
 
     if (cells[i].north == 0) //if can enter cell on north
     {
-        j = find_cell(current_x, current_y + 1);
+        current_y++; //find cell on north
+        j = find_current_cell();
+        current_y--;
 
         if (cells[j].visited < min) {
             min = cells[j].visited;
@@ -803,7 +794,9 @@ void with_least_marks()
 
     if (cells[i].west == 0) //if can enter cell on west
     {
-        j = find_cell(current_x - 1, current_y);
+        current_x--; //find cell on west
+        j = find_current_cell();
+        current_x++;
 
         if (cells[j].visited < min) {
             min = cells[j].visited;
@@ -813,16 +806,66 @@ void with_least_marks()
 
     if (cells[i].south == 0) //if can enter cell on south
     {
-        j = find_cell(current_x, current_y - 1);
+        current_y--; //find cell on south
+        j = find_current_cell();
+        current_y++;
 
         if (cells[j].visited < min) {
+            min = cells[j].visited;
             min_dir = 's';
         }
     }
 
+
     swap_direction(min_dir);
 }
 
+/*
+ * Behaviour of cells for Tremaux algorithm
+ */
+void cell_analysis() //determine type of cell
+{
+    int i = find_current_cell();
+
+    if (cells[i].type == 'p') //if path  - just follow it
+    {
+        choose_direction_p();
+    }
+
+    if (cells[i].type == 'd') // if dead end - turn 180
+    {
+        rotate_180();
+        update_visited();
+
+    }
+
+    if (cells[i].type == 'j') //if junction
+    {
+
+        int p = find_prev_cell();
+
+        if (cells[p].visited == 1) //if coming from unvisited
+        {
+            if (cells[i].visited == 1) //if new junction
+            {
+                choose_direct_rand_j(); //select a random direction
+            }
+
+            else //if visited junction before
+            {
+                rotate_180();
+            }
+        }
+
+        else // if coming from an already visited path
+        {
+            with_least_marks(); //choose option which was the least visited
+        }
+
+    }
+
+
+}
 
 /*
  * Perform Tremaux algorithm until all 3 goal cells are visited
@@ -837,136 +880,115 @@ void with_least_marks()
  *  if junction is new - randomly choose direction
  *  if not - rotate 180
  */
-void tremaux()
+void tremaux() //do tremaux algorithm
 {
 
-    move_forward();
+
+    move_forward(); //move out of the initial cell
     check_walls();
     determ_type(0);
     update_visited();
 
     int k, m, l;
+
     k = find_cell(goal1_x, goal1_y); //get goal cells
     m = find_cell(goal2_x, goal2_y);
     l = find_cell(goal3_x, goal3_y);
 
+
     while (cells[k].visited == 0 || cells[l].visited == 0 || cells[m].visited == 0) {
-
-        int i = find_current_cell();
-
-        if (cells[i].type == 'p')
-        {
-            choose_direction_p();
-        }
-
-        if (cells[i].type == 'd')
-        {
-            rotate_180();
-            update_visited();
-
-        }
-
-        if (cells[i].type == 'j')
-        {
-
-            int p = find_prev_cell();
-
-            if (cells[p].visited == 1)
-            {
-                if (cells[i].visited == 1)
-                {
-                    choose_direct_rand_j();
-                }
-
-                else
-                {
-                    rotate_180();
-                }
-            }
-
-            else
-            {
-                with_least_marks();
-            }
-        }
+        cell_analysis();
 
         move();
+
     }
 }
-
 
 /*
  * Initialises cost matrix with values of walls from the array of cells
  */
-void create_matrix()
+void create_matrices()
 {
     int i, j;
-    int n = 0, s = 0, e = 0, w = 0;
+    int n, s, e, w;
+    int n_can, s_can, e_can, w_can;
     int x, y;
 
     for (i = 0; i < 16; i++) {
         for (j = 0; j < 16; j++) {
             if (i == j) {
-                cost_matrix[i][j] = 0;
+                cost_matrix[i][j] = 0; //no cost of going to itself
             }
 
             else {
-                cost_matrix[i][j] = 99;
+                cost_matrix[i][j] = 99; //by default - no connection for all nodes
             }
 
+            pass_matrix[i][j] = -1;
         }
     }
 
     for (i = 0; i < 16; i++) {
+        n_can = 1;
+        s_can = 1;
+        e_can = 1;
+        w_can = 1;
 
-        if (cells[i].y < 4)
+
+
+        if (cells[i].y < 4) //check if cell on the north is possible
         {
             x = cells[i].x;
             y = cells[i].y + 1;
-            n = find_cell(x, y);
+            n = find_cell(x, y); //get cell on the north
+
         }
 
-        if (cells[i].y > 1)
+        if (cells[i].y > 1) //check if cell on the south is possible
         {
             x = cells[i].x;
             y = cells[i].y - 1;
-            s = find_cell(x, y);
+            s = find_cell(x, y); //get cell on the south
+
         }
 
-        if (cells[i].x < 4)
+        if (cells[i].x < 4) //check if cell on the east is possible
         {
             x = cells[i].x + 1;
             y = cells[i].y;
-            e = find_cell(x, y);
+            e = find_cell(x, y); //get cell on the east
+
         }
 
-        if (cells[i].x > 1)
+        if (cells[i].x > 1) //check if cell on the south is possible
         {
             x = cells[i].x - 1;
             y = cells[i].y;
-            w = find_cell(x, y);
+            w = find_cell(x, y); //get cell on the south
+
+
         }
 
 
-        if (cells[i].north == 0)
+        if (cells[i].north == 0 && n_can == 1) //if no wall and cell was visited, write to table
         {
             cost_matrix[i][n] = 1;
             cost_matrix[n][i] = 1;
         }
 
-        if (cells[i].south == 0)
+        if (cells[i].south == 0 && s_can == 1) //if no wall and cell was visited, write to table
         {
             cost_matrix[i][s] = 1;
             cost_matrix[s][i] = 1;
         }
 
-        if (cells[i].east == 0)
+        if (cells[i].east == 0 && e_can == 1) //if no wall and cell was visited, write to table
         {
             cost_matrix[i][e] = 1;
             cost_matrix[e][i] = 1;
         }
 
-        if (cells[i].west == 0)
+        if (cells[i].west == 0 && w_can == 1) //if no wall and cell was visited, write to table
         {
             cost_matrix[i][w] = 1;
             cost_matrix[w][i] = 1;
@@ -978,7 +1000,6 @@ void create_matrix()
  * Give initial values of -1 to all elements of array that will hold the shortest path
  */
 void path_init() {
-
     int i;
     for (i = 0; i < 16; i++) {
         short_path[i] = -1;
@@ -1007,9 +1028,63 @@ void follow_shortest(int do_adjustment) {
             continue;
         }
         if (do_adjustment) {
+
             check_wall_weights();
-            perform_angle_adjustment(z, i);
-            perform_one_wall_adjustment(i);
+
+            int adj_weight_prev;
+            int adj_weight_next;
+            int do_adj = 0;
+            if (cells[i].north == 1 && cells[z].north == 1) {
+                adj_weight_next = north_weight;
+                adj_weight_prev = prev_north_weight;
+                do_adj = 1;
+            } else if (cells[i].east == 1 && cells[z].east == 1) {
+                adj_weight_next = east_weight;
+                adj_weight_prev = prev_east_weight;
+                do_adj = 1;
+            } else if (cells[i].south == 1 && cells[z].south == 1) {
+                adj_weight_next = south_weight;
+                adj_weight_prev = prev_south_weight;
+                do_adj = 1;
+            } else if (cells[i].west == 1 && cells[z].west == 1) {
+                adj_weight_next = west_weight;
+                adj_weight_prev = prev_west_weight;
+                do_adj = 1;
+            }
+
+            if (do_adj) adjust_angle_triangle(adj_weight_prev, adj_weight_next);
+
+
+            // Pick adjustment wall
+            char adj_dir_1 = '\0';
+            int *adj_weight_1;
+            char adj_dir_2 = '\0';
+            int *adj_weight_2;
+            if (cells[i].north) {
+                adj_dir_1 = 'n';
+                adj_weight_1 = &north_weight;
+            } else if (cells[i].south) {
+                adj_dir_1 = 's';
+                adj_weight_1 = &south_weight;
+            }
+            if (cells[i].east) {
+                adj_dir_2 = 'e';
+                adj_weight_2 = &east_weight;
+            } else if (cells[i].west) {
+                adj_dir_2 = 'w';
+                adj_weight_2 = &west_weight;
+            }
+
+            char mem_dir = direction;
+            if (adj_dir_1 != '\0') {
+                swap_direction(adj_dir_1);
+                adjust_one_wall(adj_weight_1);
+            }
+            if (adj_dir_2 != '\0') {
+                swap_direction(adj_dir_2);
+                adjust_one_wall(adj_weight_2);
+            }
+            swap_direction(mem_dir);
         }
 
         prev_x = current_x;
@@ -1106,19 +1181,15 @@ void convert_unknown_to_walls() {
  * Run Dijkstra's algorithm that adds indices of cells in a shortest path to short_path array
  * Plots a path from startnode to endnode
  */
-void dijkstra(int startnode, int endnode)
-{
-
-    printf("Hello Disjstra\n");
-    int cost[16][16], distance[16], pred[16];
-    int visited[16], count, mindistance, nextnode = 0, i, j, n = 16;
+void dijkstra(int G[MAX][MAX], int n, int startnode, int endnode) {
+    int cost[MAX][MAX], distance[MAX], pred[MAX];
+    int visited[MAX], count, mindistance, nextnode, i, j;
     for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++) {
-            if (cost_matrix[i][j] == 0)
+        for (j = 0; j < n; j++)
+            if (G[i][j] == 0)
                 cost[i][j] = INFINITY;
             else
-                cost[i][j] = cost_matrix[i][j];
-        }
+                cost[i][j] = G[i][j];
 
     for (i = 0; i < n; i++) {
         distance[i] = cost[startnode][i];
@@ -1146,7 +1217,7 @@ void dijkstra(int startnode, int endnode)
 
     for (i = 0; i < n; i++)
         if (i == endnode) {
-            count = 1;
+            int count = 1;
             int temp[16];
             temp[0] = i;
             j = i;
@@ -1160,9 +1231,11 @@ void dijkstra(int startnode, int endnode)
 
             int x = 0;
 
+
             x = 0;
             int y;
             count--;
+
 
             for (y = count; y >= 0; y--) {
                 short_path[x] = temp[count];
@@ -1177,35 +1250,27 @@ void dijkstra(int startnode, int endnode)
 int main(void) {
 
 
-    initialise_cells();
+    initialise_cells(); // initiaise cells in the map with indices and false for all walls
 
     tremaux();
 
     convert_unknown_to_walls();
 
-    create_matrix();
+    create_matrices();
 
     path_init();
-    printf("Will do dikstra from %d\n", find_current_cell());
-    dijkstra(find_current_cell(), 0);
 
-    int z;
-
-    for (z = 0; z < 16; z ++)
-    {
-        printf("%d ", short_path[z]);
-    }
-
+    dijkstra(cost_matrix, 16, find_current_cell(), 0);
     follow_shortest(1);
+
+    int i = find_current_cell();
 
     swap_direction('s');
     move_forward();
+
     swap_direction('n');
 
-    int i;
-
-    for (i = 0; i < 3; i++)
-    {
+    for (i = 0; i < 3; i++) {
         high(26);
         pause(500);
         low(26);
@@ -1214,11 +1279,10 @@ int main(void) {
 
     move_forward();
     path_init();
-    dijkstra(0, 15);
+    dijkstra(cost_matrix, 16, 0, 15);
     follow_shortest(0);
 
-    for (i = 0; i < 3; i++)
-    {
+    for (i = 0; i < 3; i++) {
         high(26);
         pause(500);
         low(26);
